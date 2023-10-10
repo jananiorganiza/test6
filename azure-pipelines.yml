@@ -1,0 +1,78 @@
+trigger: none
+pr: none
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+# - task: Maven@4
+#   inputs:
+#     mavenPomFile: 'pom.xml'
+#     goals: 'clean package'
+#     publishJUnitResults: true
+#     testResultsFiles: '**/surefire-reports/TEST-*.xml'
+#     javaHomeOption: 'JDKVersion'
+#     jdkVersionOption: '1.17'
+#     mavenVersionOption: 'Default'
+#     mavenAuthenticateFeed: true
+#     effectivePomSkip: false
+#     sonarQubeRunAnalysis: false
+- script: |
+    # wget  https://github.com/github/codeql-action/releases/download/codeql-bundle-20200826/codeql-runner-linux
+    wget https://github.com/github/codeql-action/releases/download/codeql-bundle-v2.15.0/codeql-bundle-linux64.tar.gz
+    ls
+    tar -xvzf codeql-bundle-linux64.tar.gz
+    ls
+    pwd
+    
+    # chmod +x codeql-runner-linux 
+  displayName: 'Get latest CodeQL package. Install on Agent.'
+- task: MavenAuthenticate@0
+  inputs:
+    artifactsFeeds: 'maven'
+
+- script: |
+    # mv $(codeql_path)/codeql /home/vsts/work/1/codeql
+    pwd
+    cd /home/vsts/work/1/s/
+    ls
+    mv /home/vsts/work/1/s/pom.xml /home/vsts/work/1/s/codeql/pom.xml
+    mv /home/vsts/work/1/s/src /home/vsts/work/1/s/codeql/src
+    cd /home/vsts/work/1/s/codeql/
+    mkdir codeql-dbs
+    ls
+    ./codeql database create codeql-dbs/java --language=java --command='mvn clean package'
+    # mv /home/vsts/work/1/s/codeql/qlpacks/codeql/java-queries/0.8.0/codeql-suites/java-code-scanning.qls /home/vsts/work/1/s/codeql/java-code-scanning.qls
+    ./codeql database analyze codeql-dbs/java  java-code-scanning.qls --format=sarifv2.1.0 --sarif-category=java --output='java-results.sarif'
+     cd /home/vsts/work/1/s/codeql/
+     ls
+    ./codeql github upload-results  --repository=jananiorganiza/test6 --ref=refs/heads/master --commit=b6f6aa8e545dff34b31dca1b84fe97e2e63206f2 --sarif=java-results.sarif --github-url=https://github.com --github-auth-stdin=$(GITHUB_PAT)
+    # ./codeql database init
+  displayName: codeql analyze
+# - task: Bash@3
+#   inputs:
+#     targetType: 'inline'
+#     script: |
+#      ./codeql-runner-linux init \
+#      --repository jananiorganiza/test \
+#      --github-url https://github.com \
+#      --github-auth $(GITHUB_PAT) \
+#      --languages java \
+#      --spawn_strategy=local \
+#      --config-file .github/codeql/codeql-config.yml
+  
+# - script: |
+#     ./codeql-runner-linux analyze \
+#     --repository jananiorganiza/test  \
+#     --github-url https://github.com \
+#     --github-auth $(GITHUB_PAT) \
+#     --commit $(Build.SourceVersion) \
+#     --ref $(Build.SourceBranch)
+#   displayName: 'Populate the CodeQL runner databases, analyze them, and upload the results to GitHub.'
+# - task: Bash@3
+#   inputs:
+#     targetType: 'inline'
+#     script: |
+#       echo $(Build.SourcesDirectory)
+#       cd $(Build.SourcesDirectory)
+#       ls
